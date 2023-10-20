@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -55,71 +56,106 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
+  double listViewWidth = 200;
+  String? imageDirectory;
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
+    return Material(
+        child: Row(
+      children: [
+        const SizedBox(
+          width: 10,
+        ),
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              '每月收入:',
+          children: [
+            ElevatedButton(
+              onPressed: () async {
+                String? selectedDirectory =
+                    await FilePicker.platform.getDirectoryPath();
+                if (selectedDirectory != null) {
+                  imageDirectory = selectedDirectory;
+                }
+              },
+              child: const Text('打开文件夹'),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('设置保存文件夹'),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('下一张图片'),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('上一张图片'),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('保存'),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('创建标签矩形标注'),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+        Expanded(
+          child: Image.network(
+            'https://flutter.cn/assets/images/cn/flutter-cn-logo.png',
+            fit: BoxFit.cover,
+          ),
+        ),
+        GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                if (listViewWidth - details.delta.dx > 15) {
+                  listViewWidth -= details.delta.dx;
+                } else {
+                  listViewWidth = 15;
+                }
+              });
+            },
+            child: MouseRegion(
+                cursor: SystemMouseCursors.resizeLeftRight,
+                child: Container(
+                  width: 7,
+                  decoration: const BoxDecoration(),
+                  child: const VerticalDivider(
+                    thickness: 1,
+                    indent: 0,
+                    endIndent: 0,
+                    color: Color.fromRGBO(158, 158, 158, 1),
+                  ),
+                ))),
+        SizedBox(
+          width: listViewWidth,
+          child: ListView.builder(
+            itemCount: 10,
+            itemBuilder: (BuildContext context, int index) {
+              return ListTile(
+                title: Text('列表项 $index'),
+              );
+            },
+          ),
+        ),
+      ],
+    ));
   }
 }
