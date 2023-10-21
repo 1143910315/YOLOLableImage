@@ -1,5 +1,9 @@
+import 'dart:developer';
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -56,8 +60,32 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late final SharedPreferences programSetting;
   double listViewWidth = 200;
   String? imageDirectory;
+  String? labelDirectory;
+  List<File> imageFile = [];
+  Image showImage = Image.network(
+    'https://flutter.cn/assets/images/cn/flutter-cn-logo.png',
+    fit: BoxFit.contain,
+  );
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 0), () async {
+      return await SharedPreferences.getInstance();
+    }).then((value) {
+      programSetting = value;
+      imageDirectory = value.getString('imageDirectory');
+      labelDirectory = value.getString('labelDirectory');
+      if (imageDirectory != null) {
+        imageFile = findFilesInDirectory(Directory(imageDirectory!));
+      }
+    });
+  }
+
+  Future<void> initializeSharedPreferences() async {}
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -71,10 +99,16 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                String? selectedDirectory =
-                    await FilePicker.platform.getDirectoryPath();
+                String? selectedDirectory = await FilePicker.platform
+                    .getDirectoryPath(initialDirectory: imageDirectory);
                 if (selectedDirectory != null) {
                   imageDirectory = selectedDirectory;
+                  setState(() {
+                    imageFile =
+                        findFilesInDirectory(Directory(selectedDirectory));
+                  });
+                  await programSetting.setString(
+                      'imageDirectory', selectedDirectory);
                 }
               },
               child: const Text('打开文件夹'),
@@ -83,7 +117,15 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 20,
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () async {
+                String? selectedDirectory = await FilePicker.platform
+                    .getDirectoryPath(initialDirectory: labelDirectory);
+                if (selectedDirectory != null) {
+                  labelDirectory = selectedDirectory;
+                  await programSetting.setString(
+                      'labelDirectory', selectedDirectory);
+                }
+              },
               child: const Text('设置保存文件夹'),
             ),
             const SizedBox(
@@ -116,10 +158,31 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ],
         ),
+        const SizedBox(
+          width: 10,
+        ),
         Expanded(
-          child: Image.network(
-            'https://flutter.cn/assets/images/cn/flutter-cn-logo.png',
-            fit: BoxFit.cover,
+          child: Stack(
+            fit:StackFit.expand,
+            children: [
+              showImage,
+              Positioned(
+                top: 50, // 在垂直方向上距离顶部的偏移量
+                left: 320, // 在水平方向上距离左侧的偏移量
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.red, // 文字标签背景颜色
+                  child: const Text(
+                    '标签文本',
+                    style: TextStyle(
+                      color: Colors.white,
+                      backgroundColor: Colors.red,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         GestureDetector(
@@ -147,15 +210,37 @@ class _MyHomePageState extends State<MyHomePage> {
         SizedBox(
           width: listViewWidth,
           child: ListView.builder(
-            itemCount: 10,
+            itemCount: imageFile.length,
             itemBuilder: (BuildContext context, int index) {
-              return ListTile(
-                title: Text('列表项 $index'),
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    showImage =
+                        Image.file(imageFile[index], fit: BoxFit.contain);
+                  });
+                },
+                child: ListTile(
+                  title: Text(imageFile[index]
+                      .path
+                      .substring(imageDirectory!.length + 1)),
+                ),
               );
             },
           ),
         ),
       ],
     ));
+  }
+
+  List<File> findFilesInDirectory(Directory directory) {
+    List<File> files = [];
+    // 遍历目录中的内容（包括子目录）
+    directory.listSync(recursive: true).where((fileSystemEntity) {
+      return fileSystemEntity is File &&
+          fileSystemEntity.path.toLowerCase().endsWith('.jpg');
+    }).forEach((fileSystemEntity) {
+      files.add(fileSystemEntity as File);
+    });
+    return files;
   }
 }
