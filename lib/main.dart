@@ -1,5 +1,6 @@
-import 'dart:developer';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -65,16 +66,19 @@ class _MyHomePageState extends State<MyHomePage> {
   String? imageDirectory;
   String? labelDirectory;
   List<File> imageFile = [];
+  List<String> labelName = [];
+  List<List<double>> labelPositionList = [];
   Image showImage = Image.network(
     'https://flutter.cn/assets/images/cn/flutter-cn-logo.png',
     fit: BoxFit.contain,
   );
+  int imageWidth = 0;
+  int imageHeight = 0;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 0), () async {
-      return await SharedPreferences.getInstance();
-    }).then((value) {
+    SharedPreferences.getInstance().then((value) {
       programSetting = value;
       imageDirectory = value.getString('imageDirectory');
       labelDirectory = value.getString('labelDirectory');
@@ -83,8 +87,6 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     });
   }
-
-  Future<void> initializeSharedPreferences() async {}
 
   @override
   Widget build(BuildContext context) {
@@ -121,9 +123,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 String? selectedDirectory = await FilePicker.platform
                     .getDirectoryPath(initialDirectory: labelDirectory);
                 if (selectedDirectory != null) {
-                  labelDirectory = selectedDirectory;
-                  await programSetting.setString(
-                      'labelDirectory', selectedDirectory);
+                  setState(() {
+                    labelDirectory = selectedDirectory;
+                  });
+                  programSetting.setString('labelDirectory', selectedDirectory);
+                  File('$selectedDirectory/classes.txt')
+                      .readAsString()
+                      .then((value) {
+                    setState(() {
+                      labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                    });
+                  });
                 }
               },
               child: const Text('设置保存文件夹'),
@@ -161,30 +171,42 @@ class _MyHomePageState extends State<MyHomePage> {
         const SizedBox(
           width: 10,
         ),
-        Expanded(
-          child: Stack(
-            fit:StackFit.expand,
-            children: [
-              showImage,
-              Positioned(
-                top: 50, // 在垂直方向上距离顶部的偏移量
-                left: 320, // 在水平方向上距离左侧的偏移量
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.red, // 文字标签背景颜色
-                  child: const Text(
-                    '标签文本',
-                    style: TextStyle(
-                      color: Colors.white,
-                      backgroundColor: Colors.red,
-                      fontSize: 16,
+        Expanded(child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (imageWidth != 0) {
+              double widthScale = constraints.maxWidth / imageWidth;
+              double heightScale = constraints.maxWidth / imageWidth;
+              double minScale = min(widthScale, heightScale);
+              double actuallyWidth = widthScale * minScale;
+              double actuallyHeight = heightScale * minScale;
+            }
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  showImage,
+                  Positioned(
+                    top: constraints.maxWidth / 2, // 在垂直方向上距离顶部的偏移量
+                    left: constraints.maxHeight / 2, // 在水平方向上距离左侧的偏移量
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.red, // 文字标签背景颜色
+                      child: const Text(
+                        '标签文本',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            );
+          },
+        )),
         GestureDetector(
             onHorizontalDragUpdate: (details) {
               setState(() {
@@ -215,8 +237,42 @@ class _MyHomePageState extends State<MyHomePage> {
               return InkWell(
                 onTap: () {
                   setState(() {
-                    showImage =
-                        Image.file(imageFile[index], fit: BoxFit.contain);
+                    imageWidth = 0;
+                    imageHeight = 0;
+                    File showImageFile = imageFile[index];
+                    File showLabelFile = File(showImageFile.path.replaceRange(
+                        0, imageDirectory!.length, labelDirectory!));
+                    showImage = Image.file(showImageFile, fit: BoxFit.contain);
+                    showImage.image
+                        .resolve(const ImageConfiguration())
+                        .addListener(ImageStreamListener(
+                            (ImageInfo info, bool synchronousCall) {
+                      setState(() {
+                        imageWidth = info.image.width;
+                        imageHeight = info.image.height;
+                      });
+                    }));
+                    showLabelFile.readAsString(encoding: utf8).then((value) {
+                      List<List<double>> tempLabelPositionList = [];
+                      List<double> tempDoubleList = [];
+                      List<String> labelStringList =
+                          value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                      for (var element in labelStringList) {
+                        List<String> elementSplit =
+                            element.split(RegExp(r"\s+"));
+                        for (var str in elementSplit) {
+                          double n = double.parse(str);
+                          tempDoubleList.add(n);
+                        }
+                        if (tempDoubleList.length == 5) {
+                          tempLabelPositionList.add(tempDoubleList);
+                        }
+                        tempDoubleList = [];
+                      }
+                      setState(() {
+                        labelPositionList = tempLabelPositionList;
+                      });
+                    });
                   });
                 },
                 child: ListTile(
