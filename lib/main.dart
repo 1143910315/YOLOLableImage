@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path_util;
+import 'components/resizable_rectangle.dart';
 
 void main() {
   runApp(const MyApp());
@@ -187,7 +188,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 fit: StackFit.expand,
                 children: List.generate(labelPositionList.length + 1, (index) {
                   if (index == 0) {
-                    return showImage;
+                    return GestureDetector(
+                      onDoubleTap: () => setState(() {
+                        labelPositionList.add(<double>[0, 0, 0, 0, 0]);
+                      }),
+                      child: showImage,
+                    );
                   } else {
                     List<double> labelPosition = labelPositionList[index - 1];
                     int nameIndex = labelPosition[0].toInt();
@@ -195,28 +201,42 @@ class _MyHomePageState extends State<MyHomePage> {
                     if (nameIndex < labelName.length) {
                       showName = labelName[nameIndex];
                     }
-                    return Positioned(
-                      top: (constraints.maxHeight +
-                              actuallyHeight *
-                                  (2 * labelPosition[2] - labelPosition[4]) -
-                              actuallyHeight) /
-                          2,
-                      left: (constraints.maxWidth +
-                              actuallyWidth *
-                                  (2 * labelPosition[1] - labelPosition[3]) -
-                              actuallyWidth) /
-                          2,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        color: Colors.red, // 文字标签背景颜色
-                        child: Text(
-                          showName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
+                    double left = (constraints.maxWidth +
+                            actuallyWidth *
+                                (2 * labelPosition[1] - labelPosition[3]) -
+                            actuallyWidth) /
+                        2;
+                    double top = (constraints.maxHeight +
+                            actuallyHeight *
+                                (2 * labelPosition[2] - labelPosition[4]) -
+                            actuallyHeight) /
+                        2;
+                    return ResizableRectangle(
+                      width: labelPosition[3] * actuallyWidth,
+                      height: labelPosition[4] * actuallyHeight,
+                      left: left,
+                      top: top,
+                      text: showName,
+                      onResizeOrMove: (detail) => setState(() {
+                        labelPosition[1] = labelPosition[1] +
+                            (detail.left + detail.right) / 2 / actuallyWidth;
+                        labelPosition[2] = labelPosition[2] +
+                            (detail.top + detail.bottom) / 2 / actuallyHeight;
+                        labelPosition[3] = max(
+                            labelPosition[3] +
+                                (detail.right - detail.left) / actuallyWidth,
+                            0);
+                        labelPosition[4] = max(
+                            labelPosition[4] +
+                                (detail.bottom - detail.top) / actuallyHeight,
+                            0);
+                      }),
+                      onLongPress: () => setState(() {
+                        labelPositionList.removeAt(index - 1);
+                      }),
+                      onTextTap: () {
+                        
+                      },
                     );
                   }
                 }),
