@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as path_util;
 
 void main() {
   runApp(const MyApp());
@@ -37,24 +39,13 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -84,6 +75,13 @@ class _MyHomePageState extends State<MyHomePage> {
       labelDirectory = value.getString('labelDirectory');
       if (imageDirectory != null) {
         imageFile = findFilesInDirectory(Directory(imageDirectory!));
+      }
+      if (labelDirectory != null) {
+        File('$labelDirectory/classes.txt').readAsString().then((value) {
+          setState(() {
+            labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+          });
+        });
       }
     });
   }
@@ -173,36 +171,55 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         Expanded(child: LayoutBuilder(
           builder: (context, constraints) {
-            if (imageWidth != 0) {
+            double actuallyWidth = 0;
+            double actuallyHeight = 0;
+            if (imageWidth != 0 && imageHeight != 0) {
               double widthScale = constraints.maxWidth / imageWidth;
-              double heightScale = constraints.maxWidth / imageWidth;
+              double heightScale = constraints.maxHeight / imageHeight;
               double minScale = min(widthScale, heightScale);
-              double actuallyWidth = widthScale * minScale;
-              double actuallyHeight = heightScale * minScale;
+              actuallyWidth = imageWidth * minScale;
+              actuallyHeight = imageHeight * minScale;
             }
             return SizedBox(
               width: constraints.maxWidth,
               height: constraints.maxHeight,
               child: Stack(
                 fit: StackFit.expand,
-                children: [
-                  showImage,
-                  Positioned(
-                    top: constraints.maxWidth / 2, // 在垂直方向上距离顶部的偏移量
-                    left: constraints.maxHeight / 2, // 在水平方向上距离左侧的偏移量
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.red, // 文字标签背景颜色
-                      child: const Text(
-                        '标签文本',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                children: List.generate(labelPositionList.length + 1, (index) {
+                  if (index == 0) {
+                    return showImage;
+                  } else {
+                    List<double> labelPosition = labelPositionList[index - 1];
+                    int nameIndex = labelPosition[0].toInt();
+                    String showName = nameIndex.toString();
+                    if (nameIndex < labelName.length) {
+                      showName = labelName[nameIndex];
+                    }
+                    return Positioned(
+                      top: (constraints.maxHeight +
+                              actuallyHeight *
+                                  (2 * labelPosition[2] - labelPosition[4]) -
+                              actuallyHeight) /
+                          2,
+                      left: (constraints.maxWidth +
+                              actuallyWidth *
+                                  (2 * labelPosition[1] - labelPosition[3]) -
+                              actuallyWidth) /
+                          2,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        color: Colors.red, // 文字标签背景颜色
+                        child: Text(
+                          showName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                  }
+                }),
               ),
             );
           },
@@ -240,8 +257,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     imageWidth = 0;
                     imageHeight = 0;
                     File showImageFile = imageFile[index];
-                    File showLabelFile = File(showImageFile.path.replaceRange(
-                        0, imageDirectory!.length, labelDirectory!));
+                    File showLabelFile = File(path_util.setExtension(
+                        showImageFile.path.replaceRange(
+                            0, imageDirectory!.length, labelDirectory!),
+                        '.txt'));
                     showImage = Image.file(showImageFile, fit: BoxFit.contain);
                     showImage.image
                         .resolve(const ImageConfiguration())
@@ -260,9 +279,11 @@ class _MyHomePageState extends State<MyHomePage> {
                       for (var element in labelStringList) {
                         List<String> elementSplit =
                             element.split(RegExp(r"\s+"));
-                        for (var str in elementSplit) {
-                          double n = double.parse(str);
-                          tempDoubleList.add(n);
+                        if (elementSplit.length >= 5) {
+                          for (var str in elementSplit) {
+                            double n = double.parse(str);
+                            tempDoubleList.add(n);
+                          }
                         }
                         if (tempDoubleList.length == 5) {
                           tempLabelPositionList.add(tempDoubleList);
@@ -276,9 +297,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   });
                 },
                 child: ListTile(
-                  title: Text(imageFile[index]
-                      .path
-                      .substring(imageDirectory!.length + 1)),
+                  title: DefaultTextStyle(
+                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                    child: Text(imageFile[index]
+                        .path
+                        .substring(imageDirectory!.length + 1)),
+                  ),
                 ),
               );
             },
