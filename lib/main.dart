@@ -57,6 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
   double listViewWidth = 200;
   String? imageDirectory;
   String? labelDirectory;
+  int nowShowImageIndex = -1;
   List<File> imageFile = [];
   List<String> labelName = [];
   List<List<double>> labelPositionList = [];
@@ -66,7 +67,8 @@ class _MyHomePageState extends State<MyHomePage> {
   );
   int imageWidth = 0;
   int imageHeight = 0;
-
+  int selectedLabel = -1;
+  String newClassName = "";
   @override
   void initState() {
     super.initState();
@@ -99,72 +101,77 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: () async {
-                String? selectedDirectory = await FilePicker.platform
-                    .getDirectoryPath(initialDirectory: imageDirectory);
-                if (selectedDirectory != null) {
-                  imageDirectory = selectedDirectory;
-                  setState(() {
-                    imageFile =
-                        findFilesInDirectory(Directory(selectedDirectory));
-                  });
-                  await programSetting.setString(
-                      'imageDirectory', selectedDirectory);
-                }
-              },
-              child: const Text('打开文件夹'),
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                String? selectedDirectory = await FilePicker.platform
-                    .getDirectoryPath(initialDirectory: labelDirectory);
-                if (selectedDirectory != null) {
-                  setState(() {
-                    labelDirectory = selectedDirectory;
-                  });
-                  programSetting.setString('labelDirectory', selectedDirectory);
-                  File('$selectedDirectory/classes.txt')
-                      .readAsString()
-                      .then((value) {
+              onPressed: () {
+                FilePicker.platform
+                    .getDirectoryPath(initialDirectory: imageDirectory)
+                    .then((selectedDirectory) {
+                  if (selectedDirectory != null) {
+                    imageDirectory = selectedDirectory;
                     setState(() {
-                      labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                      imageFile =
+                          findFilesInDirectory(Directory(selectedDirectory));
                     });
-                  });
-                }
+                    programSetting.setString(
+                        'imageDirectory', selectedDirectory);
+                  }
+                });
               },
-              child: const Text('设置保存文件夹'),
+              child: const Text('选择图片目录'),
             ),
             const SizedBox(
-              height: 20,
+              height: 40,
             ),
             ElevatedButton(
-              onPressed: () {},
-              child: const Text('下一张图片'),
+              onPressed: () {
+                FilePicker.platform
+                    .getDirectoryPath(initialDirectory: labelDirectory)
+                    .then((selectedDirectory) {
+                  if (selectedDirectory != null) {
+                    setState(() {
+                      labelDirectory = selectedDirectory;
+                    });
+                    programSetting.setString(
+                        'labelDirectory', selectedDirectory);
+                    File('$selectedDirectory/classes.txt')
+                        .readAsString()
+                        .then((value) {
+                      setState(() {
+                        labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                      });
+                    });
+                  }
+                });
+              },
+              child: const Text('选择标签目录'),
             ),
-            const SizedBox(
-              height: 20,
-            ),
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('上一张图片'),
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('保存'),
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('创建标签矩形标注'),
-            ),
+            // const SizedBox(
+            //   height: 20,
+            // ),
+            // ElevatedButton(
+            //   onPressed: () {},
+            //   child: const Text('下一张图片'),
+            // ),
+            // const SizedBox(
+            //   height: 20,
+            // ),
+            // ElevatedButton(
+            //   onPressed: () {},
+            //   child: const Text('上一张图片'),
+            // ),
+            // const SizedBox(
+            //   height: 20,
+            // ),
+            // ElevatedButton(
+            //   onPressed: () {},
+            //   child: const Text('保存'),
+            // ),
+            // const SizedBox(
+            //   height: 20,
+            // ),
+            // ElevatedButton(
+            //   onPressed: () {},
+            //   child: const Text('创建标签矩形标注'),
+            // ),
           ],
         ),
         const SizedBox(
@@ -181,65 +188,151 @@ class _MyHomePageState extends State<MyHomePage> {
               actuallyWidth = imageWidth * minScale;
               actuallyHeight = imageHeight * minScale;
             }
+            List<Widget> stackChildrenList = [
+              GestureDetector(
+                onDoubleTapDown: (details) => setState(() {
+                  labelPositionList.add(<double>[
+                    0,
+                    (details.localPosition.dx -
+                            (constraints.maxWidth - actuallyWidth) / 2) /
+                        min(actuallyWidth, 1),
+                    (details.localPosition.dy -
+                            (constraints.maxHeight - actuallyHeight) / 2) /
+                        min(actuallyHeight, 1),
+                    0,
+                    0
+                  ]);
+                }),
+                onHorizontalDragEnd: (details) {
+                  double ratio = details.velocity.pixelsPerSecond.dx /
+                      constraints.maxWidth;
+                  if (ratio > 0.5) {
+                    showIndexImage(nowShowImageIndex - 1);
+                  } else if (ratio < -0.5) {
+                    showIndexImage(nowShowImageIndex + 1);
+                  }
+                },
+                child: showImage,
+              )
+            ];
+            stackChildrenList
+                .addAll(List.generate(labelPositionList.length, (index) {
+              List<double> labelPosition = labelPositionList[index];
+              int nameIndex = labelPosition[0].toInt();
+              String showName = nameIndex.toString();
+              if (nameIndex < labelName.length) {
+                showName = labelName[nameIndex];
+              }
+              double left = (constraints.maxWidth +
+                      actuallyWidth *
+                          (2 * labelPosition[1] - labelPosition[3]) -
+                      actuallyWidth) /
+                  2;
+              double top = (constraints.maxHeight +
+                      actuallyHeight *
+                          (2 * labelPosition[2] - labelPosition[4]) -
+                      actuallyHeight) /
+                  2;
+              return ResizableRectangle(
+                width: labelPosition[3] * actuallyWidth,
+                height: labelPosition[4] * actuallyHeight,
+                left: left,
+                top: top,
+                text: showName,
+                onResizeOrMove: (detail) => setState(() {
+                  labelPosition[1] = labelPosition[1] +
+                      (detail.left + detail.right) / 2 / actuallyWidth;
+                  labelPosition[2] = labelPosition[2] +
+                      (detail.top + detail.bottom) / 2 / actuallyHeight;
+                  labelPosition[3] = max(
+                      labelPosition[3] +
+                          (detail.right - detail.left) / actuallyWidth,
+                      0);
+                  labelPosition[4] = max(
+                      labelPosition[4] +
+                          (detail.bottom - detail.top) / actuallyHeight,
+                      0);
+                }),
+                onLongPress: () => setState(() {
+                  labelPositionList.removeAt(index);
+                }),
+                onTextTap: () => setState(() {
+                  selectedLabel = index;
+                }),
+              );
+            }));
+            if (selectedLabel >= 0 &&
+                selectedLabel < labelPositionList.length) {
+              stackChildrenList.add(Positioned(
+                left: 20,
+                top: 40,
+                width: 200,
+                bottom: 0,
+                child: ListView.builder(
+                  itemCount: labelName.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index < labelName.length) {
+                      return InkWell(
+                        onTap: () => setState(() {
+                          int temp = selectedLabel;
+                          selectedLabel = -1;
+                          labelPositionList[temp][0] = index.toDouble();
+                        }),
+                        child: ListTile(
+                          title: DefaultTextStyle(
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black,
+                            ),
+                            child: Text(labelName[index]),
+                          ),
+                        ),
+                      );
+                    } else {
+                      return ListTile(
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                style: const TextStyle(fontSize: 12),
+                                decoration: const InputDecoration(
+                                  hintText: '请输入文本',
+                                ),
+                                onChanged: (value) {
+                                  newClassName = value;
+                                },
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: GestureDetector(
+                                onTap: () => setState(() {
+                                  int temp = selectedLabel;
+                                  selectedLabel = -1;
+                                  labelPositionList[temp][0] =
+                                      labelName.length.toDouble();
+                                  labelName.add(newClassName);
+                                }),
+                                child: const Icon(
+                                  Icons.check_box,
+                                  color: Color.fromARGB(255, 103, 255, 110),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ));
+            }
             return SizedBox(
               width: constraints.maxWidth,
               height: constraints.maxHeight,
               child: Stack(
                 fit: StackFit.expand,
-                children: List.generate(labelPositionList.length + 1, (index) {
-                  if (index == 0) {
-                    return GestureDetector(
-                      onDoubleTap: () => setState(() {
-                        labelPositionList.add(<double>[0, 0, 0, 0, 0]);
-                      }),
-                      child: showImage,
-                    );
-                  } else {
-                    List<double> labelPosition = labelPositionList[index - 1];
-                    int nameIndex = labelPosition[0].toInt();
-                    String showName = nameIndex.toString();
-                    if (nameIndex < labelName.length) {
-                      showName = labelName[nameIndex];
-                    }
-                    double left = (constraints.maxWidth +
-                            actuallyWidth *
-                                (2 * labelPosition[1] - labelPosition[3]) -
-                            actuallyWidth) /
-                        2;
-                    double top = (constraints.maxHeight +
-                            actuallyHeight *
-                                (2 * labelPosition[2] - labelPosition[4]) -
-                            actuallyHeight) /
-                        2;
-                    return ResizableRectangle(
-                      width: labelPosition[3] * actuallyWidth,
-                      height: labelPosition[4] * actuallyHeight,
-                      left: left,
-                      top: top,
-                      text: showName,
-                      onResizeOrMove: (detail) => setState(() {
-                        labelPosition[1] = labelPosition[1] +
-                            (detail.left + detail.right) / 2 / actuallyWidth;
-                        labelPosition[2] = labelPosition[2] +
-                            (detail.top + detail.bottom) / 2 / actuallyHeight;
-                        labelPosition[3] = max(
-                            labelPosition[3] +
-                                (detail.right - detail.left) / actuallyWidth,
-                            0);
-                        labelPosition[4] = max(
-                            labelPosition[4] +
-                                (detail.bottom - detail.top) / actuallyHeight,
-                            0);
-                      }),
-                      onLongPress: () => setState(() {
-                        labelPositionList.removeAt(index - 1);
-                      }),
-                      onTextTap: () {
-                        
-                      },
-                    );
-                  }
-                }),
+                children: stackChildrenList,
               ),
             );
           },
@@ -272,53 +365,13 @@ class _MyHomePageState extends State<MyHomePage> {
             itemCount: imageFile.length,
             itemBuilder: (BuildContext context, int index) {
               return InkWell(
-                onTap: () {
-                  setState(() {
-                    imageWidth = 0;
-                    imageHeight = 0;
-                    File showImageFile = imageFile[index];
-                    File showLabelFile = File(path_util.setExtension(
-                        showImageFile.path.replaceRange(
-                            0, imageDirectory!.length, labelDirectory!),
-                        '.txt'));
-                    showImage = Image.file(showImageFile, fit: BoxFit.contain);
-                    showImage.image
-                        .resolve(const ImageConfiguration())
-                        .addListener(ImageStreamListener(
-                            (ImageInfo info, bool synchronousCall) {
-                      setState(() {
-                        imageWidth = info.image.width;
-                        imageHeight = info.image.height;
-                      });
-                    }));
-                    showLabelFile.readAsString(encoding: utf8).then((value) {
-                      List<List<double>> tempLabelPositionList = [];
-                      List<double> tempDoubleList = [];
-                      List<String> labelStringList =
-                          value.split(RegExp(r'\r\n|\n\r|\r|\n'));
-                      for (var element in labelStringList) {
-                        List<String> elementSplit =
-                            element.split(RegExp(r"\s+"));
-                        if (elementSplit.length >= 5) {
-                          for (var str in elementSplit) {
-                            double n = double.parse(str);
-                            tempDoubleList.add(n);
-                          }
-                        }
-                        if (tempDoubleList.length == 5) {
-                          tempLabelPositionList.add(tempDoubleList);
-                        }
-                        tempDoubleList = [];
-                      }
-                      setState(() {
-                        labelPositionList = tempLabelPositionList;
-                      });
-                    });
-                  });
-                },
+                onTap: () => showIndexImage(index),
                 child: ListTile(
                   title: DefaultTextStyle(
-                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black,
+                    ),
                     child: Text(imageFile[index]
                         .path
                         .substring(imageDirectory!.length + 1)),
@@ -342,5 +395,53 @@ class _MyHomePageState extends State<MyHomePage> {
       files.add(fileSystemEntity as File);
     });
     return files;
+  }
+
+  void showIndexImage(int index) {
+    if (imageFile.isNotEmpty) {
+      index = index.clamp(0, imageFile.length - 1);
+      debugger();
+      imageWidth = 0;
+      imageHeight = 0;
+      File showImageFile = imageFile[index];
+      File showLabelFile = File(path_util.setExtension(
+          showImageFile.path
+              .replaceRange(0, imageDirectory!.length, labelDirectory!),
+          '.txt'));
+      setState(() {
+        nowShowImageIndex = index;
+        showImage = Image.file(showImageFile, fit: BoxFit.contain);
+        showImage.image.resolve(const ImageConfiguration()).addListener(
+            ImageStreamListener((ImageInfo info, bool synchronousCall) {
+          int tempWidth = info.image.width;
+          int tempHeight = info.image.height;
+          setState(() {
+            imageWidth = tempWidth;
+            imageHeight = tempHeight;
+          });
+        }));
+      });
+      showLabelFile.readAsString(encoding: utf8).then((value) {
+        List<List<double>> tempLabelPositionList = [];
+        List<double> tempDoubleList = [];
+        List<String> labelStringList = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+        for (var element in labelStringList) {
+          List<String> elementSplit = element.split(RegExp(r"\s+"));
+          if (elementSplit.length >= 5) {
+            for (var str in elementSplit) {
+              double n = double.parse(str);
+              tempDoubleList.add(n);
+            }
+          }
+          if (tempDoubleList.length == 5) {
+            tempLabelPositionList.add(tempDoubleList);
+          }
+          tempDoubleList = [];
+        }
+        setState(() {
+          labelPositionList = tempLabelPositionList;
+        });
+      });
+    }
   }
 }
