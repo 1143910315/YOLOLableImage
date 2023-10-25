@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path_util;
@@ -69,9 +69,16 @@ class _MyHomePageState extends State<MyHomePage> {
   int imageHeight = 0;
   int selectedLabel = -1;
   String newClassName = "";
+  late ImageStreamListener listener;
   @override
   void initState() {
     super.initState();
+    listener = ImageStreamListener((image, synchronousCall) {
+      setState(() {
+        imageWidth = image.image.width;
+        imageHeight = image.image.height;
+      });
+    });
     SharedPreferences.getInstance().then((value) {
       programSetting = value;
       imageDirectory = value.getString('imageDirectory');
@@ -189,30 +196,53 @@ class _MyHomePageState extends State<MyHomePage> {
               actuallyHeight = imageHeight * minScale;
             }
             List<Widget> stackChildrenList = [
-              GestureDetector(
-                onDoubleTapDown: (details) => setState(() {
-                  labelPositionList.add(<double>[
-                    0,
-                    (details.localPosition.dx -
-                            (constraints.maxWidth - actuallyWidth) / 2) /
-                        min(actuallyWidth, 1),
-                    (details.localPosition.dy -
-                            (constraints.maxHeight - actuallyHeight) / 2) /
-                        min(actuallyHeight, 1),
-                    0,
-                    0
-                  ]);
-                }),
-                onHorizontalDragEnd: (details) {
-                  double ratio = details.velocity.pixelsPerSecond.dx /
-                      constraints.maxWidth;
-                  if (ratio > 0.5) {
-                    showIndexImage(nowShowImageIndex - 1);
-                  } else if (ratio < -0.5) {
-                    showIndexImage(nowShowImageIndex + 1);
+              Listener(
+                onPointerSignal: (PointerSignalEvent event) {
+                  if (event is PointerScrollEvent) {
+                    // 判断滚动方向
+                    if (event.scrollDelta.dy > 0) {
+                      // 向下滚动
+                      showIndexImage(nowShowImageIndex + 1);
+                    } else if (event.scrollDelta.dy < 0) {
+                      // 向上滚动
+                      showIndexImage(nowShowImageIndex - 1);
+                    }
                   }
                 },
-                child: showImage,
+                child: GestureDetector(
+                  onDoubleTapDown: (details) => setState(() {
+                    labelPositionList.add(<double>[
+                      0,
+                      (details.localPosition.dx -
+                              (constraints.maxWidth - actuallyWidth) / 2) /
+                          max(actuallyWidth, 1),
+                      (details.localPosition.dy -
+                              (constraints.maxHeight - actuallyHeight) / 2) /
+                          max(actuallyHeight, 1),
+                      0,
+                      0
+                    ]);
+                  }),
+                  onHorizontalDragEnd: (details) {
+                    double ratio = details.velocity.pixelsPerSecond.dx /
+                        constraints.maxWidth;
+                    if (ratio > 0.5) {
+                      showIndexImage(nowShowImageIndex - 1);
+                    } else if (ratio < -0.5) {
+                      showIndexImage(nowShowImageIndex + 1);
+                    }
+                  },
+                  onVerticalDragEnd: (details) {
+                    double ratio = details.velocity.pixelsPerSecond.dy /
+                        constraints.maxHeight;
+                    if (ratio > 0.5) {
+                      showIndexImage(nowShowImageIndex + 1);
+                    } else if (ratio < -0.5) {
+                      showIndexImage(nowShowImageIndex - 1);
+                    }
+                  },
+                  child: showImage,
+                ),
               )
             ];
             stackChildrenList
@@ -259,71 +289,97 @@ class _MyHomePageState extends State<MyHomePage> {
                 onTextTap: () => setState(() {
                   selectedLabel = index;
                 }),
+                onPointerSignal: (PointerSignalEvent event) {
+                  if (event is PointerScrollEvent) {
+                    // 判断滚动方向
+                    if (event.scrollDelta.dy > 0) {
+                      // 向下滚动
+                      showIndexImage(nowShowImageIndex + 1);
+                    } else if (event.scrollDelta.dy < 0) {
+                      // 向上滚动
+                      showIndexImage(nowShowImageIndex - 1);
+                    }
+                  }
+                },
               );
             }));
             if (selectedLabel >= 0 &&
                 selectedLabel < labelPositionList.length) {
               stackChildrenList.add(Positioned(
-                left: 20,
+                right: 20,
                 top: 40,
                 width: 200,
-                bottom: 0,
-                child: ListView.builder(
-                  itemCount: labelName.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index < labelName.length) {
-                      return InkWell(
-                        onTap: () => setState(() {
-                          int temp = selectedLabel;
-                          selectedLabel = -1;
-                          labelPositionList[temp][0] = index.toDouble();
-                        }),
-                        child: ListTile(
-                          title: DefaultTextStyle(
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black,
+                bottom: 40,
+                child: Container(
+                  color: const Color.fromARGB(209, 211, 211, 211),
+                  child: ListView.builder(
+                    itemCount: labelName.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index < labelName.length) {
+                        return InkWell(
+                          onTap: () => setState(() {
+                            int temp = selectedLabel;
+                            selectedLabel = -1;
+                            labelPositionList[temp][0] = index.toDouble();
+                          }),
+                          child: ListTile(
+                            shape: const Border(
+                              bottom: BorderSide(
+                                color: Color.fromARGB(255, 133, 133, 133),
+                              ),
+                              left: BorderSide(
+                                color: Color.fromARGB(255, 133, 133, 133),
+                              ),
+                              right: BorderSide(
+                                color: Color.fromARGB(255, 133, 133, 133),
+                              ),
                             ),
-                            child: Text(labelName[index]),
+                            title: DefaultTextStyle(
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black,
+                              ),
+                              child: Text(labelName[index]),
+                            ),
                           ),
-                        ),
-                      );
-                    } else {
-                      return ListTile(
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                style: const TextStyle(fontSize: 12),
-                                decoration: const InputDecoration(
-                                  hintText: '请输入文本',
-                                ),
-                                onChanged: (value) {
-                                  newClassName = value;
-                                },
-                              ),
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: GestureDetector(
-                                onTap: () => setState(() {
-                                  int temp = selectedLabel;
-                                  selectedLabel = -1;
-                                  labelPositionList[temp][0] =
-                                      labelName.length.toDouble();
-                                  labelName.add(newClassName);
-                                }),
-                                child: const Icon(
-                                  Icons.check_box,
-                                  color: Color.fromARGB(255, 103, 255, 110),
+                        );
+                      } else {
+                        return ListTile(
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: const InputDecoration(
+                                    hintText: '请输入文本',
+                                  ),
+                                  onChanged: (value) {
+                                    newClassName = value;
+                                  },
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                  },
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    int temp = selectedLabel;
+                                    selectedLabel = -1;
+                                    labelPositionList[temp][0] =
+                                        labelName.length.toDouble();
+                                    labelName.add(newClassName);
+                                  }),
+                                  child: const Icon(
+                                    Icons.check_box,
+                                    color: Color.fromARGB(255, 103, 255, 110),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
               ));
             }
@@ -400,9 +456,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void showIndexImage(int index) {
     if (imageFile.isNotEmpty) {
       index = index.clamp(0, imageFile.length - 1);
-      debugger();
       imageWidth = 0;
       imageHeight = 0;
+      selectedLabel = -1;
       File showImageFile = imageFile[index];
       File showLabelFile = File(path_util.setExtension(
           showImageFile.path
@@ -410,16 +466,13 @@ class _MyHomePageState extends State<MyHomePage> {
           '.txt'));
       setState(() {
         nowShowImageIndex = index;
+        showImage.image
+            .resolve(const ImageConfiguration())
+            .removeListener(listener);
         showImage = Image.file(showImageFile, fit: BoxFit.contain);
-        showImage.image.resolve(const ImageConfiguration()).addListener(
-            ImageStreamListener((ImageInfo info, bool synchronousCall) {
-          int tempWidth = info.image.width;
-          int tempHeight = info.image.height;
-          setState(() {
-            imageWidth = tempWidth;
-            imageHeight = tempHeight;
-          });
-        }));
+        showImage.image
+            .resolve(const ImageConfiguration())
+            .addListener(listener);
       });
       showLabelFile.readAsString(encoding: utf8).then((value) {
         List<List<double>> tempLabelPositionList = [];
