@@ -648,9 +648,11 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       changeLabelList = false;
       changeClassList = false;
-      imageFile.removeAt(operationIndex);
-      if (index > operationIndex) {
-        index = index - 1;
+      if (moveFile) {
+        imageFile.removeAt(operationIndex);
+        if (index > operationIndex) {
+          index = index - 1;
+        }
       }
       if (imageFile.isNotEmpty) {
         if (index != -1) {
