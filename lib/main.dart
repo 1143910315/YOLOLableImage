@@ -1,17 +1,14 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
-import 'package:flutter/painting.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path_util;
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'components/resizable_rectangle.dart';
 
 void main() {
@@ -575,8 +572,9 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void showIndexImage(int index) {
+    bool moveFile = false;
+    int operationIndex = nowShowImageIndex;
     if (changeLabelList) {
-      int operationIndex = nowShowImageIndex;
       File operationFile = imageFile[operationIndex];
       IOSink ioSink = File(path_util.setExtension(
               operationFile.path
@@ -611,22 +609,24 @@ class _MyHomePageState extends State<MyHomePage> {
         ioSink.writeln(
             "${element[0].toInt()} ${centerX.toStringAsFixed(6)} ${centerY.toStringAsFixed(6)} ${width.toStringAsFixed(6)} ${height.toStringAsFixed(6)}");
       }
+      String? tempImageDirectory = trainImageDirectory;
+      String? tempLabelDirectory = trainLabelDirectory;
+      String? temp = labelDirectory;
+      if (moveToTrain &&
+          tempImageDirectory != null &&
+          tempLabelDirectory != null &&
+          temp != null) {
+        moveFile = true;
+      }
       ioSink.flush().then((value) => ioSink.close().then((value) {
-            String? tempImageDirectory = trainImageDirectory;
-            String? tempLabelDirectory = trainLabelDirectory;
-            String? temp = labelDirectory;
-            if (moveToTrain &&
-                tempImageDirectory != null &&
-                tempLabelDirectory != null &&
-                temp != null) {
+            if (moveFile) {
               setState(() {
-                imageFile.removeAt(operationIndex);
                 String baseName = path_util.basename(operationFile.path);
                 operationFile
-                    .rename(path_util.join(tempImageDirectory, baseName));
-                File labelFile = File(path_util.join(temp, baseName));
+                    .rename(path_util.join(tempImageDirectory!, baseName));
+                File labelFile = File(path_util.join(temp!, baseName));
                 labelFile.exists().then((value) {
-                  String toPath = path_util.join(tempLabelDirectory,
+                  String toPath = path_util.join(tempLabelDirectory!,
                       path_util.setExtension(baseName, ".txt"));
                   if (value) {
                     labelFile.rename(toPath);
@@ -645,59 +645,71 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       ioSink.flush().then((value) => ioSink.close());
     }
-    changeLabelList = false;
-    changeClassList = false;
-    if (imageFile.isNotEmpty && index != -1) {
-      index = index.clamp(0, imageFile.length - 1);
-      imageWidth = 0;
-      imageHeight = 0;
-      selectedLabel = -1;
-      File showImageFile = imageFile[index];
-      File showLabelFile = File(path_util.setExtension(
-          showImageFile.path
-              .replaceRange(0, imageDirectory!.length, labelDirectory!),
-          '.txt'));
-      setState(() {
-        nowShowImageIndex = index;
-        showImage.image
-            .resolve(const ImageConfiguration())
-            .removeListener(listener);
-        showImage = Image.file(showImageFile, fit: BoxFit.contain);
-        showImage.image
-            .resolve(const ImageConfiguration())
-            .addListener(listener);
-      });
-      showLabelFile.exists().then((value) {
-        if (value) {
-          showLabelFile.readAsString(encoding: utf8).then((value) {
-            List<List<double>> tempLabelPositionList = [];
-            List<double> tempDoubleList = [];
-            List<String> labelStringList =
-                value.split(RegExp(r'\r\n|\n\r|\r|\n'));
-            for (var element in labelStringList) {
-              List<String> elementSplit = element.split(RegExp(r"\s+"));
-              if (elementSplit.length >= 5) {
-                for (var str in elementSplit) {
-                  double n = double.parse(str);
-                  tempDoubleList.add(n);
+    setState(() {
+      changeLabelList = false;
+      changeClassList = false;
+      imageFile.removeAt(operationIndex);
+      if (index > operationIndex) {
+        index = index - 1;
+      }
+      if (imageFile.isNotEmpty) {
+        if (index != -1) {
+          index = index.clamp(0, imageFile.length - 1);
+          imageWidth = 0;
+          imageHeight = 0;
+          selectedLabel = -1;
+          File showImageFile = imageFile[index];
+          File showLabelFile = File(path_util.setExtension(
+              showImageFile.path
+                  .replaceRange(0, imageDirectory!.length, labelDirectory!),
+              '.txt'));
+          nowShowImageIndex = index;
+          showImage.image
+              .resolve(const ImageConfiguration())
+              .removeListener(listener);
+          showImage = Image.file(showImageFile, fit: BoxFit.contain);
+          showImage.image
+              .resolve(const ImageConfiguration())
+              .addListener(listener);
+          showLabelFile.exists().then((value) {
+            if (value) {
+              showLabelFile.readAsString(encoding: utf8).then((value) {
+                List<List<double>> tempLabelPositionList = [];
+                List<double> tempDoubleList = [];
+                List<String> labelStringList =
+                    value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                for (var element in labelStringList) {
+                  List<String> elementSplit = element.split(RegExp(r"\s+"));
+                  if (elementSplit.length >= 5) {
+                    for (var str in elementSplit) {
+                      double n = double.parse(str);
+                      tempDoubleList.add(n);
+                    }
+                  }
+                  if (tempDoubleList.length == 5) {
+                    tempLabelPositionList.add(tempDoubleList);
+                  }
+                  tempDoubleList = [];
                 }
-              }
-              if (tempDoubleList.length == 5) {
-                tempLabelPositionList.add(tempDoubleList);
-              }
-              tempDoubleList = [];
+                setState(() {
+                  labelPositionList = tempLabelPositionList;
+                });
+              });
+            } else {
+              setState(() {
+                labelPositionList = [];
+              });
             }
-            setState(() {
-              labelPositionList = tempLabelPositionList;
-            });
-          });
-        } else {
-          setState(() {
-            labelPositionList = [];
           });
         }
-      });
-    }
+      } else {
+        nowShowImageIndex = -1;
+        showImage = Image.network(
+          'https://flutter.cn/assets/images/cn/flutter-cn-logo.png',
+          fit: BoxFit.contain,
+        );
+      }
+    });
   }
 
   Future<Uint8List> createImageData() async {
