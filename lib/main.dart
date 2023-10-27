@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -77,6 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String? trainLabelDirectory;
   bool changeLabelList = false;
   bool changeClassList = false;
+  int showPictureNumber = 1;
   @override
   void initState() {
     super.initState();
@@ -86,27 +88,28 @@ class _MyHomePageState extends State<MyHomePage> {
         imageHeight = image.image.height;
       });
     });
-    SharedPreferences.getInstance().then((value) {
-      programSetting = value;
-      imageDirectory = value.getString('imageDirectory');
-      labelDirectory = value.getString('labelDirectory');
-      trainImageDirectory = value.getString('trainImageDirectory');
-      trainLabelDirectory = value.getString('trainLabelDirectory');
-      moveToTrain = value.getBool("moveToTrain") ?? false;
-      if (imageDirectory != null) {
-        imageFile = findFilesInDirectory(Directory(imageDirectory!));
-      }
-      if (labelDirectory != null) {
-        File classesFile = File('$labelDirectory/classes.txt');
-        if (classesFile.existsSync()) {
-          classesFile.readAsString().then((value) {
-            setState(() {
-              labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
-            });
-          });
-        }
-      }
-    });
+    SharedPreferences.getInstance().then((value) => setState(() {
+          programSetting = value;
+          imageDirectory = value.getString('imageDirectory');
+          labelDirectory = value.getString('labelDirectory');
+          trainImageDirectory = value.getString('trainImageDirectory');
+          trainLabelDirectory = value.getString('trainLabelDirectory');
+          moveToTrain = value.getBool("moveToTrain") ?? false;
+          showPictureNumber = value.getInt("showPictureNumber") ?? 1;
+          if (imageDirectory != null) {
+            imageFile = findFilesInDirectory(Directory(imageDirectory!));
+          }
+          if (labelDirectory != null) {
+            File classesFile = File('$labelDirectory/classes.txt');
+            if (classesFile.existsSync()) {
+              classesFile.readAsString().then((value) {
+                setState(() {
+                  labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                });
+              });
+            }
+          }
+        }));
   }
 
   @override
@@ -117,398 +120,395 @@ class _MyHomePageState extends State<MyHomePage> {
         const SizedBox(
           width: 10,
         ),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                FilePicker.platform
-                    .getDirectoryPath(initialDirectory: imageDirectory)
-                    .then((selectedDirectory) {
-                  if (selectedDirectory != null) {
-                    setState(() {
-                      showIndexImage(-1);
-                      imageDirectory = selectedDirectory;
-                      imageFile =
-                          findFilesInDirectory(Directory(selectedDirectory));
-                      if (imageFile.isNotEmpty) {
-                        nowShowImageIndex = 0;
-                      } else {
-                        nowShowImageIndex = -1;
-                      }
-                    });
-                    programSetting.setString(
-                        'imageDirectory', selectedDirectory);
-                  }
-                });
-              },
-              child: const Text('选择图片目录'),
-            ),
-            const SizedBox(
-              height: 40,
-            ),
-            ElevatedButton(
-              onPressed: () {
-                FilePicker.platform
-                    .getDirectoryPath(initialDirectory: labelDirectory)
-                    .then((selectedDirectory) {
-                  if (selectedDirectory != null) {
-                    setState(() {
-                      showIndexImage(-1);
-                      labelDirectory = selectedDirectory;
-                    });
-                    programSetting.setString(
-                        'labelDirectory', selectedDirectory);
-                    File('$selectedDirectory/classes.txt')
-                        .readAsString()
-                        .then((value) {
+        SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  FilePicker.platform
+                      .getDirectoryPath(initialDirectory: imageDirectory)
+                      .then((selectedDirectory) {
+                    if (selectedDirectory != null) {
                       setState(() {
-                        labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                        showIndexImage(-1);
+                        imageDirectory = selectedDirectory;
+                        imageFile =
+                            findFilesInDirectory(Directory(selectedDirectory));
+                        if (imageFile.isNotEmpty) {
+                          nowShowImageIndex = 0;
+                        } else {
+                          nowShowImageIndex = -1;
+                        }
                       });
-                    });
-                  }
-                });
-              },
-              child: const Text('选择标签目录'),
-            ),
-            const SizedBox(
-              height: 40,
-            ),
-            SizedBox(
-              width: 150,
-              child: CheckboxListTile(
-                enabled:
-                    trainImageDirectory != null && trainLabelDirectory != null,
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: const EdgeInsets.all(0),
-                title: const Text(
-                  "标注修改时移入训练目录",
-                  style: TextStyle(fontSize: 14),
-                ),
-                value: moveToTrain,
-                onChanged: (value) => setState(() {
-                  moveToTrain = !moveToTrain;
-                  programSetting.setBool("moveToTrain", moveToTrain);
-                }),
+                      programSetting.setString(
+                          'imageDirectory', selectedDirectory);
+                    }
+                  });
+                },
+                child: const Text('选择图片目录'),
               ),
-            ),
-            const SizedBox(
-              height: 40,
-            ),
-            ElevatedButton(
-              onPressed: () {
-                FilePicker.platform
-                    .getDirectoryPath(initialDirectory: trainImageDirectory)
-                    .then((selectedDirectory) {
-                  if (selectedDirectory != null) {
+              const SizedBox(
+                height: 40,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  FilePicker.platform
+                      .getDirectoryPath(initialDirectory: labelDirectory)
+                      .then((selectedDirectory) {
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        showIndexImage(-1);
+                        labelDirectory = selectedDirectory;
+                      });
+                      programSetting.setString(
+                          'labelDirectory', selectedDirectory);
+                      File('$selectedDirectory/classes.txt')
+                          .readAsString()
+                          .then((value) {
+                        setState(() {
+                          labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                        });
+                      });
+                    }
+                  });
+                },
+                child: const Text('选择标签目录'),
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              SizedBox(
+                width: 150,
+                child: CheckboxListTile(
+                  enabled: trainImageDirectory != null &&
+                      trainLabelDirectory != null,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.all(0),
+                  title: const Text(
+                    "标注修改时移入训练目录",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  value: moveToTrain,
+                  onChanged: (value) => setState(() {
+                    moveToTrain = !moveToTrain;
+                    programSetting.setBool("moveToTrain", moveToTrain);
+                  }),
+                ),
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  FilePicker.platform
+                      .getDirectoryPath(initialDirectory: trainImageDirectory)
+                      .then((selectedDirectory) {
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        trainImageDirectory = selectedDirectory;
+                      });
+                      programSetting.setString(
+                          'trainImageDirectory', selectedDirectory);
+                    }
+                  });
+                },
+                child: const Text('选择训练图片目录'),
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  FilePicker.platform
+                      .getDirectoryPath(initialDirectory: trainLabelDirectory)
+                      .then((selectedDirectory) {
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        trainLabelDirectory = selectedDirectory;
+                      });
+                      programSetting.setString(
+                          'trainLabelDirectory', selectedDirectory);
+                    }
+                  });
+                },
+                child: const Text('选择训练标签目录'),
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  changeLabelList = false;
+                  changeClassList = false;
+                  showIndexImage(nowShowImageIndex);
+                },
+                child: const Text('还原标注'),
+              ),
+              const SizedBox(
+                height: 40,
+              ),
+              DropdownButton<int>(
+                value: showPictureNumber,
+                onChanged: (int? newValue) {
+                  if (newValue != null) {
                     setState(() {
-                      trainImageDirectory = selectedDirectory;
+                      showPictureNumber = newValue;
+                      programSetting.setInt("showPictureNumber", newValue);
                     });
-                    programSetting.setString(
-                        'trainImageDirectory', selectedDirectory);
                   }
-                });
-              },
-              child: const Text('选择训练图片目录'),
-            ),
-            const SizedBox(
-              height: 40,
-            ),
-            ElevatedButton(
-              onPressed: () {
-                FilePicker.platform
-                    .getDirectoryPath(initialDirectory: trainLabelDirectory)
-                    .then((selectedDirectory) {
-                  if (selectedDirectory != null) {
-                    setState(() {
-                      trainLabelDirectory = selectedDirectory;
-                    });
-                    programSetting.setString(
-                        'trainLabelDirectory', selectedDirectory);
-                  }
-                });
-              },
-              child: const Text('选择训练标签目录'),
-            ),
-            const SizedBox(
-              height: 40,
-            ),
-            ElevatedButton(
-              onPressed: () {
-                changeLabelList = false;
-                changeClassList = false;
-                showIndexImage(nowShowImageIndex);
-              },
-              child: const Text('还原标注'),
-            ),
-            // const SizedBox(
-            //   height: 20,
-            // ),
-            // ElevatedButton(
-            //   onPressed: () {},
-            //   child: const Text('下一张图片'),
-            // ),
-            // const SizedBox(
-            //   height: 20,
-            // ),
-            // ElevatedButton(
-            //   onPressed: () {},
-            //   child: const Text('上一张图片'),
-            // ),
-            // const SizedBox(
-            //   height: 20,
-            // ),
-            // ElevatedButton(
-            //   onPressed: () {},
-            //   child: const Text('保存'),
-            // ),
-            // const SizedBox(
-            //   height: 20,
-            // ),
-            // ElevatedButton(
-            //   onPressed: () {},
-            //   child: const Text('创建标签矩形标注'),
-            // ),
-          ],
+                },
+                items: <int>[1, 4, 8, 16].map((int value) {
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text('一次显示$value张'),
+                  );
+                }).toList(),
+              )
+            ],
+          ),
         ),
         const SizedBox(
           width: 10,
         ),
-        Expanded(child: LayoutBuilder(
-          builder: (context, constraints) {
-            double actuallyWidth = 0;
-            double actuallyHeight = 0;
-            if (imageWidth != 0 && imageHeight != 0) {
-              double widthScale = constraints.maxWidth / imageWidth;
-              double heightScale = constraints.maxHeight / imageHeight;
-              double minScale = min(widthScale, heightScale);
-              actuallyWidth = imageWidth * minScale;
-              actuallyHeight = imageHeight * minScale;
-            }
-            List<Widget> stackChildrenList = [
-              Listener(
-                onPointerSignal: (PointerSignalEvent event) {
-                  if (event is PointerScrollEvent) {
-                    // 判断滚动方向
-                    if (event.scrollDelta.dy > 0) {
-                      // 向下滚动
-                      showIndexImage(nowShowImageIndex + 1);
-                    } else if (event.scrollDelta.dy < 0) {
-                      // 向上滚动
-                      showIndexImage(nowShowImageIndex - 1);
-                    }
-                  }
-                },
-                child: GestureDetector(
-                  onDoubleTapDown: (details) => setState(() {
-                    if (nowShowImageIndex >= 0 &&
-                        nowShowImageIndex < imageFile.length) {
-                      labelPositionList.add(<double>[
-                        0,
-                        (details.localPosition.dx -
-                                (constraints.maxWidth - actuallyWidth) / 2) /
-                            max(actuallyWidth, 1),
-                        (details.localPosition.dy -
-                                (constraints.maxHeight - actuallyHeight) / 2) /
-                            max(actuallyHeight, 1),
-                        0,
-                        0
-                      ]);
-                    }
-                  }),
-                  onHorizontalDragEnd: (details) {
-                    double ratio = details.velocity.pixelsPerSecond.dx /
-                        constraints.maxWidth;
-                    if (ratio > 0.5) {
-                      showIndexImage(nowShowImageIndex - 1);
-                    } else if (ratio < -0.5) {
-                      showIndexImage(nowShowImageIndex + 1);
-                    }
-                  },
-                  onVerticalDragEnd: (details) {
-                    double ratio = details.velocity.pixelsPerSecond.dy /
-                        constraints.maxHeight;
-                    if (ratio > 0.5) {
-                      showIndexImage(nowShowImageIndex + 1);
-                    } else if (ratio < -0.5) {
-                      showIndexImage(nowShowImageIndex - 1);
-                    }
-                  },
-                  child: showImage,
-                  // child: DragItemWidget(
-                  //   dragItemProvider: (request) async {
-                  //     // DragItem represents the content begin dragged.
-                  //     final item = DragItem();
-                  //     // Add data for this item that other applications can read
-                  //     // on drop. (optional)
-                  //     item.add(Formats.png(await createImageData()));
-                  //     item.add(Formats.png(Uint8List.fromList(utf8.encode(
-                  //         r"D:\Code\Python\IdentifyingEmoticons\success\image\$$$QGXZTA]YQZLS5@I)$]IY.jpg"))));
-                  //     return item;
-                  //   },
-                  //   allowedOperations: () => [DropOperation.copy],
-                  //   // DraggableWidget represents the actual draggable area. It looks
-                  //   // for parent DragItemWidget in widget hierarchy to provide the DragItem.
-                  //   child: DraggableWidget(
-                  //     child: showImage,
-                  //   ),
-                  // ),
-                ),
-              )
-            ];
-            stackChildrenList
-                .addAll(List.generate(labelPositionList.length, (index) {
-              List<double> labelPosition = labelPositionList[index];
-              int nameIndex = labelPosition[0].toInt();
-              String showName = nameIndex.toString();
-              if (nameIndex < labelName.length) {
-                showName = labelName[nameIndex];
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              double actuallyWidth = 0;
+              double actuallyHeight = 0;
+              if (imageWidth != 0 && imageHeight != 0) {
+                double widthScale = constraints.maxWidth / imageWidth;
+                double heightScale = constraints.maxHeight / imageHeight;
+                double minScale = min(widthScale, heightScale);
+                actuallyWidth = imageWidth * minScale;
+                actuallyHeight = imageHeight * minScale;
               }
-              double left = (constraints.maxWidth +
-                      actuallyWidth *
-                          (2 * labelPosition[1] - labelPosition[3]) -
-                      actuallyWidth) /
-                  2;
-              double top = (constraints.maxHeight +
-                      actuallyHeight *
-                          (2 * labelPosition[2] - labelPosition[4]) -
-                      actuallyHeight) /
-                  2;
-              return ResizableRectangle(
-                width: labelPosition[3] * actuallyWidth,
-                height: labelPosition[4] * actuallyHeight,
-                left: left,
-                top: top,
-                text: showName,
-                onResizeOrMove: (detail) => setState(() {
-                  changeLabelList = true;
-                  labelPosition[1] = labelPosition[1] +
-                      (detail.left + detail.right) / 2 / actuallyWidth;
-                  labelPosition[2] = labelPosition[2] +
-                      (detail.top + detail.bottom) / 2 / actuallyHeight;
-                  labelPosition[3] = max(
-                      labelPosition[3] +
-                          (detail.right - detail.left) / actuallyWidth,
-                      0);
-                  labelPosition[4] = max(
-                      labelPosition[4] +
-                          (detail.bottom - detail.top) / actuallyHeight,
-                      0);
-                }),
-                onLongPress: () => setState(() {
-                  changeLabelList = true;
-                  labelPositionList.removeAt(index);
-                }),
-                onTextTap: () => setState(() {
-                  selectedLabel = index;
-                }),
-                onPointerSignal: (PointerSignalEvent event) {
-                  if (event is PointerScrollEvent) {
-                    // 判断滚动方向
-                    if (event.scrollDelta.dy > 0) {
-                      // 向下滚动
-                      showIndexImage(nowShowImageIndex + 1);
-                    } else if (event.scrollDelta.dy < 0) {
-                      // 向上滚动
-                      showIndexImage(nowShowImageIndex - 1);
+              List<Widget> stackChildrenList = [
+                Listener(
+                  onPointerSignal: (PointerSignalEvent event) {
+                    if (event is PointerScrollEvent) {
+                      // 判断滚动方向
+                      if (event.scrollDelta.dy > 0) {
+                        // 向下滚动
+                        showIndexImage(nowShowImageIndex + 1);
+                      } else if (event.scrollDelta.dy < 0) {
+                        // 向上滚动
+                        showIndexImage(nowShowImageIndex - 1);
+                      }
                     }
-                  }
-                },
-              );
-            }));
-            if (selectedLabel >= 0 &&
-                selectedLabel < labelPositionList.length) {
-              stackChildrenList.add(Positioned(
-                right: 20,
-                top: 40,
-                width: 200,
-                bottom: 40,
-                child: Container(
-                  color: const Color.fromARGB(209, 211, 211, 211),
-                  child: ListView.builder(
-                    itemCount: labelName.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index < labelName.length) {
-                        return InkWell(
-                          onTap: () => setState(() {
-                            changeLabelList = true;
-                            int temp = selectedLabel;
-                            selectedLabel = -1;
-                            labelPositionList[temp][0] = index.toDouble();
-                          }),
-                          child: ListTile(
-                            shape: const Border(
-                              bottom: BorderSide(
-                                color: Color.fromARGB(255, 133, 133, 133),
-                              ),
-                              left: BorderSide(
-                                color: Color.fromARGB(255, 133, 133, 133),
-                              ),
-                              right: BorderSide(
-                                color: Color.fromARGB(255, 133, 133, 133),
-                              ),
-                            ),
-                            title: DefaultTextStyle(
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black,
-                              ),
-                              child: Text(labelName[index]),
-                            ),
-                          ),
-                        );
-                      } else {
-                        return ListTile(
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  style: const TextStyle(fontSize: 12),
-                                  decoration: const InputDecoration(
-                                    hintText: '请输入文本',
-                                  ),
-                                  onChanged: (value) {
-                                    newClassName = value;
-                                  },
-                                ),
-                              ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: GestureDetector(
-                                  onTap: () => setState(() {
-                                    changeLabelList = true;
-                                    changeClassList = true;
-                                    int temp = selectedLabel;
-                                    selectedLabel = -1;
-                                    labelPositionList[temp][0] =
-                                        labelName.length.toDouble();
-                                    labelName.add(newClassName);
-                                  }),
-                                  child: const Icon(
-                                    Icons.check_box,
-                                    color: Color.fromARGB(255, 103, 255, 110),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                  },
+                  child: GestureDetector(
+                    onDoubleTapDown: (details) => setState(() {
+                      if (nowShowImageIndex >= 0 &&
+                          nowShowImageIndex < imageFile.length) {
+                        labelPositionList.add(<double>[
+                          0,
+                          (details.localPosition.dx -
+                                  (constraints.maxWidth - actuallyWidth) / 2) /
+                              max(actuallyWidth, 1),
+                          (details.localPosition.dy -
+                                  (constraints.maxHeight - actuallyHeight) /
+                                      2) /
+                              max(actuallyHeight, 1),
+                          0,
+                          0
+                        ]);
+                      }
+                    }),
+                    onHorizontalDragEnd: (details) {
+                      double ratio = details.velocity.pixelsPerSecond.dx /
+                          constraints.maxWidth;
+                      if (ratio > 0.5) {
+                        showIndexImage(nowShowImageIndex - 1);
+                      } else if (ratio < -0.5) {
+                        showIndexImage(nowShowImageIndex + 1);
                       }
                     },
+                    onVerticalDragEnd: (details) {
+                      double ratio = details.velocity.pixelsPerSecond.dy /
+                          constraints.maxHeight;
+                      if (ratio > 0.5) {
+                        showIndexImage(nowShowImageIndex + 1);
+                      } else if (ratio < -0.5) {
+                        showIndexImage(nowShowImageIndex - 1);
+                      }
+                    },
+                    child: showImage,
+                    // child: DragItemWidget(
+                    //   dragItemProvider: (request) async {
+                    //     // DragItem represents the content begin dragged.
+                    //     final item = DragItem();
+                    //     // Add data for this item that other applications can read
+                    //     // on drop. (optional)
+                    //     item.add(Formats.png(await createImageData()));
+                    //     item.add(Formats.png(Uint8List.fromList(utf8.encode(
+                    //         r"D:\Code\Python\IdentifyingEmoticons\success\image\$$$QGXZTA]YQZLS5@I)$]IY.jpg"))));
+                    //     return item;
+                    //   },
+                    //   allowedOperations: () => [DropOperation.copy],
+                    //   // DraggableWidget represents the actual draggable area. It looks
+                    //   // for parent DragItemWidget in widget hierarchy to provide the DragItem.
+                    //   child: DraggableWidget(
+                    //     child: showImage,
+                    //   ),
+                    // ),
                   ),
+                )
+              ];
+              stackChildrenList
+                  .addAll(List.generate(labelPositionList.length, (index) {
+                List<double> labelPosition = labelPositionList[index];
+                int nameIndex = labelPosition[0].toInt();
+                String showName = nameIndex.toString();
+                if (nameIndex < labelName.length) {
+                  showName = labelName[nameIndex];
+                }
+                double left = (constraints.maxWidth +
+                        actuallyWidth *
+                            (2 * labelPosition[1] - labelPosition[3]) -
+                        actuallyWidth) /
+                    2;
+                double top = (constraints.maxHeight +
+                        actuallyHeight *
+                            (2 * labelPosition[2] - labelPosition[4]) -
+                        actuallyHeight) /
+                    2;
+                return ResizableRectangle(
+                  width: labelPosition[3] * actuallyWidth,
+                  height: labelPosition[4] * actuallyHeight,
+                  left: left,
+                  top: top,
+                  text: showName,
+                  onResizeOrMove: (detail) => setState(() {
+                    changeLabelList = true;
+                    labelPosition[1] = labelPosition[1] +
+                        (detail.left + detail.right) / 2 / actuallyWidth;
+                    labelPosition[2] = labelPosition[2] +
+                        (detail.top + detail.bottom) / 2 / actuallyHeight;
+                    labelPosition[3] = max(
+                        labelPosition[3] +
+                            (detail.right - detail.left) / actuallyWidth,
+                        0);
+                    labelPosition[4] = max(
+                        labelPosition[4] +
+                            (detail.bottom - detail.top) / actuallyHeight,
+                        0);
+                  }),
+                  onLongPress: () => setState(() {
+                    changeLabelList = true;
+                    labelPositionList.removeAt(index);
+                  }),
+                  onTextTap: () => setState(() {
+                    selectedLabel = index;
+                  }),
+                  onPointerSignal: (PointerSignalEvent event) {
+                    if (event is PointerScrollEvent) {
+                      // 判断滚动方向
+                      if (event.scrollDelta.dy > 0) {
+                        // 向下滚动
+                        showIndexImage(nowShowImageIndex + 1);
+                      } else if (event.scrollDelta.dy < 0) {
+                        // 向上滚动
+                        showIndexImage(nowShowImageIndex - 1);
+                      }
+                    }
+                  },
+                );
+              }));
+              if (selectedLabel >= 0 &&
+                  selectedLabel < labelPositionList.length) {
+                stackChildrenList.add(Positioned(
+                  right: 20,
+                  top: 40,
+                  width: 200,
+                  bottom: 40,
+                  child: Container(
+                    color: const Color.fromARGB(209, 211, 211, 211),
+                    child: ListView.builder(
+                      itemCount: labelName.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index < labelName.length) {
+                          return InkWell(
+                            onTap: () => setState(() {
+                              changeLabelList = true;
+                              int temp = selectedLabel;
+                              selectedLabel = -1;
+                              labelPositionList[temp][0] = index.toDouble();
+                            }),
+                            child: ListTile(
+                              shape: const Border(
+                                bottom: BorderSide(
+                                  color: Color.fromARGB(255, 133, 133, 133),
+                                ),
+                                left: BorderSide(
+                                  color: Color.fromARGB(255, 133, 133, 133),
+                                ),
+                                right: BorderSide(
+                                  color: Color.fromARGB(255, 133, 133, 133),
+                                ),
+                              ),
+                              title: DefaultTextStyle(
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
+                                child: Text(labelName[index]),
+                              ),
+                            ),
+                          );
+                        } else {
+                          return ListTile(
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    style: const TextStyle(fontSize: 12),
+                                    decoration: const InputDecoration(
+                                      hintText: '请输入文本',
+                                    ),
+                                    onChanged: (value) {
+                                      newClassName = value;
+                                    },
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: GestureDetector(
+                                    onTap: () => setState(() {
+                                      changeLabelList = true;
+                                      changeClassList = true;
+                                      int temp = selectedLabel;
+                                      selectedLabel = -1;
+                                      labelPositionList[temp][0] =
+                                          labelName.length.toDouble();
+                                      labelName.add(newClassName);
+                                    }),
+                                    child: const Icon(
+                                      Icons.check_box,
+                                      color: Color.fromARGB(255, 103, 255, 110),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ));
+              }
+              return SizedBox(
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: stackChildrenList,
                 ),
-              ));
-            }
-            return SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: Stack(
-                fit: StackFit.expand,
-                children: stackChildrenList,
-              ),
-            );
-          },
-        )),
+              );
+            },
+          ),
+        ),
         GestureDetector(
             onHorizontalDragUpdate: (details) {
               setState(() {
