@@ -2,7 +2,8 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/components/resizable_rectangle.dart';
+
+import 'resizable_rectangle.dart';
 
 typedef ChangeRectangleCallback = void Function(
     int index, double centerX, double centerY, double width, double height);
@@ -139,15 +140,6 @@ class _LabelImageState extends State<LabelImage> {
             onResizeOrMove: (detail) {
               ChangeRectangleCallback? callback = widget.onChangeRectangle;
               if (callback != null) {
-                // print("${rectangleData.centerX +
-                //             (detail.left + detail.right) / 2 / actuallyWidth} - ${rectangleData.centerY +
-                //             (detail.top + detail.bottom) / 2 / actuallyHeight} - ${max(
-                //             rectangleData.width +
-                //                 (detail.right - detail.left) / actuallyWidth,
-                //             0)} - ${max(
-                //             rectangleData.height +
-                //                 (detail.bottom - detail.top) / actuallyHeight,
-                //             0)}");
                 callback(
                     index,
                     rectangleData.centerX +
