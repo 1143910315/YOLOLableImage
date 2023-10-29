@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -506,8 +505,15 @@ class _MyHomePageState extends State<MyHomePage> {
     if (directory.existsSync()) {
       // 遍历目录中的内容（包括子目录）
       directory.listSync(recursive: true).where((fileSystemEntity) {
-        return fileSystemEntity is File &&
-            fileSystemEntity.path.toLowerCase().endsWith('.jpg');
+        if (fileSystemEntity is File) {
+          var filePathLowerCase = fileSystemEntity.path.toLowerCase();
+          return filePathLowerCase.endsWith('.jpg') ||
+              filePathLowerCase.endsWith('.jpeg') ||
+              filePathLowerCase.endsWith('.png') ||
+              filePathLowerCase.endsWith('.bmp') ||
+              filePathLowerCase.endsWith('.gif');
+        }
+        return false;
       }).forEach((fileSystemEntity) {
         files.add(fileSystemEntity as File);
       });
@@ -570,7 +576,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   String baseName = path_util.basename(operationFile.path);
                   operationFile
                       .rename(path_util.join(tempImageDirectory!, baseName));
-                  File labelFile = File(path_util.join(temp!, baseName));
+                  File labelFile = File(path_util.setExtension(
+                      path_util.join(temp!, baseName), ".txt"));
                   labelFile.exists().then((value) {
                     String toPath = path_util.join(tempLabelDirectory!,
                         path_util.setExtension(baseName, ".txt"));
