@@ -1,9 +1,8 @@
+import 'dart:developer';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_application_1/components/resizable_rectangle.dart';
 
 typedef ChangeRectangleCallback = void Function(
@@ -12,11 +11,11 @@ typedef DeleteRectangleCallback = void Function(int index);
 typedef SelectClassCallback = void Function(int index);
 
 class RectangleData {
-  final double centerX;
-  final double centerY;
-  final double width;
-  final double height;
-  final int classIndex;
+  double centerX;
+  double centerY;
+  double width;
+  double height;
+  int classIndex;
   RectangleData({
     required this.classIndex,
     required this.centerX,
@@ -29,7 +28,6 @@ class RectangleData {
 class LabelImage extends StatefulWidget {
   const LabelImage(
       {super.key,
-      this.onPointerSignal,
       this.onChangeRectangle,
       required this.imageFile,
       required this.classNameList,
@@ -39,7 +37,6 @@ class LabelImage extends StatefulWidget {
   final File imageFile;
   final List<String> classNameList;
   final List<RectangleData> rectangleDataList;
-  final PointerSignalEventListener? onPointerSignal;
   final ChangeRectangleCallback? onChangeRectangle;
   final DeleteRectangleCallback? onDeleteRectangle;
   final SelectClassCallback? onSelectClass;
@@ -97,27 +94,24 @@ class _LabelImageState extends State<LabelImage> {
           actuallyHeight = imageHeight * minScale;
         }
         List<Widget> stackChildrenList = [
-          Listener(
-            onPointerSignal: widget.onPointerSignal,
-            child: GestureDetector(
-              onDoubleTapDown: (details) {
-                ChangeRectangleCallback? callback = widget.onChangeRectangle;
-                if (callback != null) {
-                  callback(
-                      -1,
-                      (details.localPosition.dx -
-                              (constraints.maxWidth - actuallyWidth) / 2) /
-                          max(actuallyWidth, 1),
-                      (details.localPosition.dy -
-                              (constraints.maxHeight - actuallyHeight) / 2) /
-                          max(actuallyHeight, 1),
-                      0,
-                      0);
-                }
-              },
-              child: showImage,
-            ),
-          )
+          GestureDetector(
+            onDoubleTapDown: (details) {
+              ChangeRectangleCallback? callback = widget.onChangeRectangle;
+              if (callback != null) {
+                callback(
+                    -1,
+                    (details.localPosition.dx -
+                            (constraints.maxWidth - actuallyWidth) / 2) /
+                        max(actuallyWidth, 1),
+                    (details.localPosition.dy -
+                            (constraints.maxHeight - actuallyHeight) / 2) /
+                        max(actuallyHeight, 1),
+                    0,
+                    0);
+              }
+            },
+            child: showImage,
+          ),
         ];
         stackChildrenList
             .addAll(List.generate(tempRectangleDataList.length, (index) {
@@ -146,6 +140,15 @@ class _LabelImageState extends State<LabelImage> {
             onResizeOrMove: (detail) {
               ChangeRectangleCallback? callback = widget.onChangeRectangle;
               if (callback != null) {
+                // print("${rectangleData.centerX +
+                //             (detail.left + detail.right) / 2 / actuallyWidth} - ${rectangleData.centerY +
+                //             (detail.top + detail.bottom) / 2 / actuallyHeight} - ${max(
+                //             rectangleData.width +
+                //                 (detail.right - detail.left) / actuallyWidth,
+                //             0)} - ${max(
+                //             rectangleData.height +
+                //                 (detail.bottom - detail.top) / actuallyHeight,
+                //             0)}");
                 callback(
                     index,
                     rectangleData.centerX +
@@ -174,7 +177,6 @@ class _LabelImageState extends State<LabelImage> {
                 callback(index);
               }
             },
-            onPointerSignal: widget.onPointerSignal,
           );
         }));
         return SizedBox(
@@ -187,5 +189,16 @@ class _LabelImageState extends State<LabelImage> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    Image? tempImage = showImage;
+    if (tempImage != null) {
+      tempImage.image
+          .resolve(const ImageConfiguration())
+          .removeListener(imageListener);
+    }
+    super.dispose();
   }
 }

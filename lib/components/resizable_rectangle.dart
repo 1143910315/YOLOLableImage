@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 typedef ResizeOrMoveCallback = void Function(ResizeOrMoveDetail detail);
 typedef MoveEvent = void Function(double left, double top);
@@ -31,7 +30,6 @@ class ResizableRectangle extends StatefulWidget {
     this.onDoubleTap,
     this.onLongPress,
     this.onTextTap,
-    this.onPointerSignal,
   });
 
   final double left;
@@ -44,7 +42,6 @@ class ResizableRectangle extends StatefulWidget {
   final GestureTapCallback? onDoubleTap;
   final GestureLongPressCallback? onLongPress;
   final GestureTapCallback? onTextTap;
-  final PointerSignalEventListener? onPointerSignal;
   @override
   State<ResizableRectangle> createState() => _ResizableRectangleState();
 }
@@ -55,9 +52,7 @@ class _ResizableRectangleState extends State<ResizableRectangle> {
     return Positioned(
       left: widget.left - widget.circleSize / 2,
       top: widget.top - widget.circleSize / 2,
-      child: Listener(
-        onPointerSignal: widget.onPointerSignal,
-        child: SizedBox(
+      child: SizedBox(
           width: widget.width + widget.circleSize,
           height: widget.height + widget.circleSize,
           child: Stack(
@@ -161,7 +156,6 @@ class _ResizableRectangleState extends State<ResizableRectangle> {
             ],
           ),
         ),
-      ),
     );
   }
 
