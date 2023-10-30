@@ -23,7 +23,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.flutter_application_1"
+    namespace "com.windows.h.yolo_label_image"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 

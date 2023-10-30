@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path_util;
 
@@ -84,29 +85,33 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedLabel = null;
       }
     };
-    SharedPreferences.getInstance().then((value) => setState(() {
-          programSetting = value;
-          imageDirectory = value.getString('imageDirectory');
-          labelDirectory = value.getString('labelDirectory');
-          trainImageDirectory = value.getString('trainImageDirectory');
-          trainLabelDirectory = value.getString('trainLabelDirectory');
-          moveToTrain = value.getBool("moveToTrain") ?? false;
-          showPictureNumber = value.getInt("showPictureNumber") ?? 1;
-          if (imageDirectory != null) {
-            imageFile = findFilesInDirectory(Directory(imageDirectory!));
-          }
-          if (labelDirectory != null) {
-            File classesFile = File('$labelDirectory/classes.txt');
-            if (classesFile.existsSync()) {
-              classesFile.readAsString().then((value) {
-                setState(() {
-                  labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
-                });
-              });
-            }
-          }
-          showIndexImage(nowShowImageIndex);
-        }));
+    Permission.photos.request().isGranted.then((value) async {
+      if (value || await Permission.storage.request().isGranted) {
+        SharedPreferences.getInstance().then((value) => setState(() {
+              programSetting = value;
+              imageDirectory = value.getString('imageDirectory');
+              labelDirectory = value.getString('labelDirectory');
+              trainImageDirectory = value.getString('trainImageDirectory');
+              trainLabelDirectory = value.getString('trainLabelDirectory');
+              moveToTrain = value.getBool("moveToTrain") ?? false;
+              showPictureNumber = value.getInt("showPictureNumber") ?? 1;
+              if (imageDirectory != null) {
+                imageFile = findFilesInDirectory(Directory(imageDirectory!));
+              }
+              if (labelDirectory != null) {
+                File classesFile = File('$labelDirectory/classes.txt');
+                if (classesFile.existsSync()) {
+                  classesFile.readAsString().then((value) {
+                    setState(() {
+                      labelName = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                    });
+                  });
+                }
+              }
+              showIndexImage(nowShowImageIndex);
+            }));
+      }
+    });
   }
 
   @override
@@ -259,9 +264,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   onChanged: (int? newValue) {
                     if (newValue != null) {
                       showPictureNumber = newValue;
-                      programSetting.setInt("showPictureNumber", newValue);
                       changeClassList = false;
                       showIndexImage(nowShowImageIndex);
+                      programSetting.setInt("showPictureNumber", newValue);
                     }
                   },
                   items: <int>[1, 4, 9, 16].map((int value) {
@@ -622,32 +627,36 @@ class _MyHomePageState extends State<MyHomePage> {
         for (var i = 0; i < tempLabelInfoList.length; i++) {
           (int num, LabelInfo labelInfo) {
             var showImageFile = imageFile[index + num];
-            var showLabelFile = File(path_util.setExtension(
-                showImageFile.path
-                    .replaceRange(0, imageDirectory!.length, labelDirectory!),
-                '.txt'));
-            showLabelFile.exists().then((isExists) {
-              if (isExists) {
-                showLabelFile.readAsString(encoding: utf8).then((value) {
-                  var tempData = <RectangleData>[];
-                  var labelStringList = value.split(RegExp(r'\r\n|\n\r|\r|\n'));
-                  for (var element in labelStringList) {
-                    var elementSplit = element.split(RegExp(r"\s+"));
-                    if (elementSplit.length >= 5) {
-                      tempData.add(RectangleData(
-                          classIndex: int.tryParse(elementSplit[0]) ?? 0,
-                          centerX: double.tryParse(elementSplit[1]) ?? 0,
-                          centerY: double.tryParse(elementSplit[2]) ?? 0,
-                          width: double.tryParse(elementSplit[3]) ?? 0,
-                          height: double.tryParse(elementSplit[4]) ?? 0));
+            var tempLabelDirectory = labelDirectory;
+            if (tempLabelDirectory != null) {
+              var showLabelFile = File(path_util.setExtension(
+                  showImageFile.path
+                      .replaceRange(0, imageDirectory!.length, labelDirectory!),
+                  '.txt'));
+              showLabelFile.exists().then((isExists) {
+                if (isExists) {
+                  showLabelFile.readAsString(encoding: utf8).then((value) {
+                    var tempData = <RectangleData>[];
+                    var labelStringList =
+                        value.split(RegExp(r'\r\n|\n\r|\r|\n'));
+                    for (var element in labelStringList) {
+                      var elementSplit = element.split(RegExp(r"\s+"));
+                      if (elementSplit.length >= 5) {
+                        tempData.add(RectangleData(
+                            classIndex: int.tryParse(elementSplit[0]) ?? 0,
+                            centerX: double.tryParse(elementSplit[1]) ?? 0,
+                            centerY: double.tryParse(elementSplit[2]) ?? 0,
+                            width: double.tryParse(elementSplit[3]) ?? 0,
+                            height: double.tryParse(elementSplit[4]) ?? 0));
+                      }
                     }
-                  }
-                  setState(() {
-                    labelInfo.rectangleList.addAll(tempData);
+                    setState(() {
+                      labelInfo.rectangleList.addAll(tempData);
+                    });
                   });
-                });
-              }
-            });
+                }
+              });
+            }
           }(i, tempLabelInfoList[i]);
         }
       } else {
