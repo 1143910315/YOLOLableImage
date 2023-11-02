@@ -619,12 +619,14 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       }
       if (imageFile.isNotEmpty) {
-        index = index.clamp(0, imageFile.length - showPictureNumber);
+        index = index.clamp(0, max(imageFile.length - showPictureNumber, 0));
         var tempLabelInfoList =
             List.generate(showPictureNumber, (_) => LabelInfo([]));
         labelInfoList = tempLabelInfoList;
         nowShowImageIndex = index;
-        for (var i = 0; i < tempLabelInfoList.length; i++) {
+        for (var i = 0;
+            i < tempLabelInfoList.length && (index + i) < imageFile.length;
+            i++) {
           (int num, LabelInfo labelInfo) {
             var showImageFile = imageFile[index + num];
             var tempLabelDirectory = labelDirectory;
