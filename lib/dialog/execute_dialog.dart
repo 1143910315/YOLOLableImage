@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 
 typedef ExternalProgramsChangeCallback = void Function(
     String newExternalPrograms);
+typedef WorkingDirectoryChangeCallback = void Function(
+    String newWorkingDirectory);
 typedef ArgumentsChangeCallback = void Function(String newArguments);
+typedef GetPathListFunction = List<String> Function();
 
 class ExecuteDialog extends StatefulWidget {
   const ExecuteDialog(
@@ -14,19 +17,26 @@ class ExecuteDialog extends StatefulWidget {
       this.externalPrograms,
       this.arguments,
       this.onExternalProgramsChange,
-      this.onArgumentsChange});
+      this.onArgumentsChange,
+      required this.getPathList,
+      this.workingDirectory,
+      this.onWorkingDirectoryChange});
 
   final String? externalPrograms;
+  final String? workingDirectory;
   final String? arguments;
 
   final ExternalProgramsChangeCallback? onExternalProgramsChange;
+  final WorkingDirectoryChangeCallback? onWorkingDirectoryChange;
   final ArgumentsChangeCallback? onArgumentsChange;
+  final GetPathListFunction getPathList;
   @override
   State<ExecuteDialog> createState() => _ExecuteDialogState();
 }
 
 class _ExecuteDialogState extends State<ExecuteDialog> {
   late final TextEditingController externalProgramsTextEditingController;
+  late final TextEditingController workingDirectoryTextEditingController;
   late final List<TextEditingController> argumentsTextEditingController =
       List.empty(growable: true);
   @override
@@ -34,6 +44,22 @@ class _ExecuteDialogState extends State<ExecuteDialog> {
     super.initState();
     externalProgramsTextEditingController =
         TextEditingController(text: widget.externalPrograms);
+    externalProgramsTextEditingController.addListener(() {
+      ExternalProgramsChangeCallback? temp = widget.onExternalProgramsChange;
+      if (temp != null) {
+        temp(externalProgramsTextEditingController.text);
+        setState(() {});
+      }
+    });
+    workingDirectoryTextEditingController =
+        TextEditingController(text: widget.workingDirectory);
+    workingDirectoryTextEditingController.addListener(() {
+      ExternalProgramsChangeCallback? temp = widget.onWorkingDirectoryChange;
+      if (temp != null) {
+        temp(workingDirectoryTextEditingController.text);
+        setState(() {});
+      }
+    });
     try {
       List<dynamic> argumentArray = jsonDecode(widget.arguments ?? "[]");
       for (var element in argumentArray) {
@@ -47,15 +73,6 @@ class _ExecuteDialogState extends State<ExecuteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    externalProgramsTextEditingController.addListener(() {
-      ExternalProgramsChangeCallback? temp = widget.onExternalProgramsChange;
-      if (temp != null &&
-          externalProgramsTextEditingController.text !=
-              widget.externalPrograms) {
-        temp(externalProgramsTextEditingController.text);
-        setState(() {});
-      }
-    });
     return Dialog(
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -109,14 +126,35 @@ class _ExecuteDialogState extends State<ExecuteDialog> {
                           filePickerResult.count == 1) {
                         String? path = filePickerResult.paths[0];
                         if (path != null) {
-                          ExternalProgramsChangeCallback? temp =
-                              widget.onExternalProgramsChange;
-                          if (temp != null &&
-                              externalProgramsTextEditingController.text !=
-                                  widget.externalPrograms) {
-                            temp(externalProgramsTextEditingController.text);
-                          }
+                          externalProgramsTextEditingController.text = path;
                         }
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                const Text("工作目录："),
+                Expanded(
+                  child: TextField(
+                    controller: workingDirectoryTextEditingController,
+                    decoration: const InputDecoration(
+                        hintText: "例如：C:\\Windows，留空为本程序工作目录"),
+                  ),
+                ),
+                ElevatedButton(
+                  child: const Text('选择工作目录'),
+                  onPressed: () {
+                    FilePicker.platform
+                        .getDirectoryPath(
+                      dialogTitle: "选择工作目录",
+                    )
+                        .then((filePickerResult) {
+                      if (filePickerResult != null) {
+                        workingDirectoryTextEditingController.text =
+                            filePickerResult;
                       }
                     });
                   },
@@ -152,17 +190,30 @@ class _ExecuteDialogState extends State<ExecuteDialog> {
             const SizedBox(
               height: 5,
             ),
-            Text(argumentListToString(generateArgumentList(["c:\\1.txt", "c:\\2.txt", "c:\\3.txt"]))),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(
+                argumentListToString(
+                    generateArgumentList(widget.getPathList())),
+                textAlign: TextAlign.left,
+              ),
+            ),
             const SizedBox(
               height: 10,
             ),
             ElevatedButton(
               child: const Text('调用外部程序'),
               onPressed: () async {
-                ProcessResult result = await Process.run(
-                    externalProgramsTextEditingController.text, []);
-                String str = result.stdout.toString();
-                str.isEmpty;
+                var process = await Process.start(
+                    externalProgramsTextEditingController.text,
+                    generateArgumentList(widget.getPathList()),
+                    workingDirectory:
+                        workingDirectoryTextEditingController.text.isEmpty
+                            ? null
+                            : workingDirectoryTextEditingController.text);
+                process.stdout.transform(utf8.decoder).forEach(print);
+                process.stderr.transform(utf8.decoder).forEach(print);
+                print("end run");
               },
             ),
             const SizedBox(
@@ -240,35 +291,6 @@ class _ExecuteDialogState extends State<ExecuteDialog> {
       }
     }
     return argumentList.join(" ");
-  }
-
-  String generateArguments(List<String> path) {
-    List<String> arguments = List.generate(
-        argumentsTextEditingController.length - 1,
-        (index) => argumentsTextEditingController[index].text);
-    String argumentsPattern = arguments.join(" ");
-    final regex = RegExp(
-        r'^(.*?)(?=\$\{file1\}|$)(\$\{file1\})?((?<=\$\{file1\}).*(?=\$\{file2\}))?(\$\{file2\})?(.*)$');
-    final match = regex.firstMatch(argumentsPattern);
-    if (match != null) {
-      String beginString = match.group(1) ?? "";
-      String? file1String = match.group(2);
-      String? separateString = match.group(3);
-      String endString = match.group(5) ?? "";
-      if (separateString != null) {
-        String concatenationString = path.join(separateString);
-        return "$beginString$concatenationString$endString";
-      } else {
-        if (file1String != null && path.isNotEmpty) {
-          String firstPath = path[0];
-          return "$beginString$firstPath$endString";
-        } else {
-          return "$beginString$endString";
-        }
-      }
-    } else {
-      return "";
-    }
   }
 
   TextEditingController generateTextEditingController(String text) {

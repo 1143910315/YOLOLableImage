@@ -68,6 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
   late final PointerSignalEventListener onPointerSignal;
   var scrollController = ScrollController();
   String? externalPrograms;
+  String? workingDirectory;
   String? arguments;
   Text argumentsExampleText = const Text("");
   @override
@@ -101,6 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
               moveToTrain = value.getBool("moveToTrain") ?? false;
               showPictureNumber = value.getInt("showPictureNumber") ?? 1;
               externalPrograms = value.getString('externalPrograms');
+              workingDirectory = value.getString('workingDirectory');
               arguments = value.getString('arguments');
               if (imageDirectory != null) {
                 imageFile = findFilesInDirectory(Directory(imageDirectory!));
@@ -293,6 +295,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       builder: (BuildContext context) {
                         return ExecuteDialog(
                           externalPrograms: externalPrograms,
+                          workingDirectory: workingDirectory,
                           arguments: arguments,
                           onExternalProgramsChange: (newExternalPrograms) {
                             setState(() {
@@ -301,12 +304,23 @@ class _MyHomePageState extends State<MyHomePage> {
                             programSetting.setString(
                                 'externalPrograms', newExternalPrograms);
                           },
+                          onWorkingDirectoryChange: (newWorkingDirectory) {
+                            setState(() {
+                              workingDirectory = newWorkingDirectory;
+                            });
+                            programSetting.setString(
+                                'workingDirectory', newWorkingDirectory);
+                          },
                           onArgumentsChange: (newArguments) {
                             setState(() {
                               arguments = newArguments;
                             });
                             programSetting.setString('arguments', newArguments);
                           },
+                          getPathList: () => List.generate(
+                              showPictureNumber,
+                              (index) =>
+                                  imageFile[nowShowImageIndex + index].path),
                         );
                       },
                     );
