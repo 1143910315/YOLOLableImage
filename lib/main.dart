@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path_util;
+import 'package:yolo_label_image/dialog/execute_dialog.dart';
 
 import 'components/label_image.dart';
 
@@ -65,6 +66,10 @@ class _MyHomePageState extends State<MyHomePage> {
   bool changeClassList = false;
   int showPictureNumber = 1;
   late final PointerSignalEventListener onPointerSignal;
+  var scrollController = ScrollController();
+  String? externalPrograms;
+  String? arguments;
+  Text argumentsExampleText = const Text("");
   @override
   void initState() {
     super.initState();
@@ -95,6 +100,8 @@ class _MyHomePageState extends State<MyHomePage> {
               trainLabelDirectory = value.getString('trainLabelDirectory');
               moveToTrain = value.getBool("moveToTrain") ?? false;
               showPictureNumber = value.getInt("showPictureNumber") ?? 1;
+              externalPrograms = value.getString('externalPrograms');
+              arguments = value.getString('arguments');
               if (imageDirectory != null) {
                 imageFile = findFilesInDirectory(Directory(imageDirectory!));
               }
@@ -275,7 +282,37 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Text('一次显示$value张'),
                     );
                   }).toList(),
-                )
+                ),
+                const SizedBox(
+                  height: 40,
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return ExecuteDialog(
+                          externalPrograms: externalPrograms,
+                          arguments: arguments,
+                          onExternalProgramsChange: (newExternalPrograms) {
+                            setState(() {
+                              externalPrograms = newExternalPrograms;
+                            });
+                            programSetting.setString(
+                                'externalPrograms', newExternalPrograms);
+                          },
+                          onArgumentsChange: (newArguments) {
+                            setState(() {
+                              arguments = newArguments;
+                            });
+                            programSetting.setString('arguments', newArguments);
+                          },
+                        );
+                      },
+                    );
+                  },
+                  child: const Text('使用当前文件执行外部程序'),
+                ),
               ],
             ),
           ),
@@ -485,7 +522,9 @@ class _MyHomePageState extends State<MyHomePage> {
               itemCount: imageFile.length,
               itemBuilder: (BuildContext context, int index) {
                 return InkWell(
-                  onTap: () => showIndexImage(index),
+                  onTap: () {
+                    showIndexImage(index);
+                  },
                   child: ListTile(
                     title: DefaultTextStyle(
                       style: const TextStyle(

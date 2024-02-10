@@ -113,14 +113,8 @@ class _LabelImageState extends State<LabelImage> {
             child: showImage,
           ),
         ];
-        stackChildrenList
-            .addAll(List.generate(tempRectangleDataList.length, (index) {
+        var offsetList = List.generate(tempRectangleDataList.length, (index) {
           RectangleData rectangleData = tempRectangleDataList[index];
-          int classIndex = rectangleData.classIndex;
-          String showName = classIndex.toString();
-          if (classIndex < tempClassNameList.length) {
-            showName = tempClassNameList[classIndex];
-          }
           double left = (constraints.maxWidth +
                   actuallyWidth *
                       (2 * rectangleData.centerX - rectangleData.width) -
@@ -131,11 +125,21 @@ class _LabelImageState extends State<LabelImage> {
                       (2 * rectangleData.centerY - rectangleData.height) -
                   actuallyHeight) /
               2;
+          return Offset(left, top);
+        });
+        stackChildrenList
+            .addAll(List.generate(tempRectangleDataList.length, (index) {
+          RectangleData rectangleData = tempRectangleDataList[index];
+          int classIndex = rectangleData.classIndex;
+          String showName = classIndex.toString();
+          if (classIndex < tempClassNameList.length) {
+            showName = tempClassNameList[classIndex];
+          }
           return ResizableRectangle(
             width: rectangleData.width * actuallyWidth,
             height: rectangleData.height * actuallyHeight,
-            left: left,
-            top: top,
+            left: offsetList[index].dx,
+            top: offsetList[index].dy,
             text: showName,
             onResizeOrMove: (detail) {
               ChangeRectangleCallback? callback = widget.onChangeRectangle;
@@ -170,6 +174,48 @@ class _LabelImageState extends State<LabelImage> {
             },
           );
         }));
+        // stackChildrenList
+        //     .addAll(List.generate(tempRectangleDataList.length, (index) {
+        //   RectangleData rectangleData = tempRectangleDataList[index];
+        //   int classIndex = rectangleData.classIndex;
+        //   String showName = classIndex.toString();
+        //   if (classIndex < tempClassNameList.length) {
+        //     showName = tempClassNameList[classIndex];
+        //   }
+        //   double left = (constraints.maxWidth +
+        //           actuallyWidth *
+        //               (2 * rectangleData.centerX - rectangleData.width) -
+        //           actuallyWidth) /
+        //       2;
+        //   double top = (constraints.maxHeight +
+        //           actuallyHeight *
+        //               (2 * rectangleData.centerY - rectangleData.height) -
+        //           actuallyHeight) /
+        //       2;
+        //   return Positioned(
+        //     left: left + 5 * index + 5,
+        //     top: top + 5 * index + 5,
+        //     child: GestureDetector(
+        //       onTap: () {
+        //         SelectClassCallback? callback = widget.onSelectClass;
+        //         if (callback != null) {
+        //           callback(index);
+        //         }
+        //       },
+        //       child: Container(
+        //         padding: const EdgeInsets.all(8),
+        //         color: Color.fromARGB(148, 253, 86, 74), // 文字标签背景颜色
+        //         child: Text(
+        //           showName,
+        //           style: const TextStyle(
+        //             color: Colors.white,
+        //             fontSize: 16,
+        //           ),
+        //         ),
+        //       ),
+        //     ),
+        //   );
+        // }));
         return SizedBox(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
